@@ -21,7 +21,7 @@ public class Main {
 	
 	static String FILENAME_PREFIX = "t1_";
 	static String PATH = "C:\\Users\\Lenovo\\Desktop\\dane\\";
-	static int NUMBER_OF_POSES = 115;
+	static int NUMBER_OF_POSES = 45;
 	static int[][][][] guassians = null;
 	
 	static ImageSIFT A=null,B=null;
@@ -60,19 +60,22 @@ public class Main {
 		
 	}
 	static void draw() {
+		graphics.setColor(Color.WHITE);
+		graphics.fillRect((int)0, (int)0, 960*2, 520*2);
 		
+		if(A!=null) {
+			DrawImage(A,0,0);
+		//DrawAllFeatures(A,0,0);
+		}
 		
 
 		if(FC!=null) {
-			DrawCloudPlane(FC,500,920);
+			DrawCloudPlane(FC,0,0);
 			//DrawCloud(FC,0,0);
 			
 		}
 		
-		if(A!=null) {
-			DrawImage(A,960,0);
-		DrawAllFeatures(A,0,0);
-		}
+		
 	}
 	
 	static void DrawImage(ImageSIFT sift, double Ox, double Oy) {
@@ -101,23 +104,24 @@ public class Main {
 	
 	static void DrawCloudPlane(FeatureCloud cloud, double Ox, double Oy) {
 
-		  double highest = 100;
-	        double lowest = -100;
+		  double highest = 10;
+	        double lowest = -10;
 		double fullRange = Math.abs(highest-lowest);
-		graphics.setColor(Color.WHITE);
-		graphics.fillRect((int)0, (int)0, 960*2, 520*2);
+		
 		 for(int i=0;i<cloud.featurePositions.size();i++) {
 	        	
 	        	double x = cloud.featurePositions.get(i)[0];
-	        	double h = cloud.featurePositions.get(i)[1];
-	        	double y = -cloud.featurePositions.get(i)[2];
+	        	double y = cloud.featurePositions.get(i)[1];
+	        	double h = cloud.featurePositions.get(i)[2];
+	        	double z = cloud.featurePositions.get(i)[3];
 	        	
 	        	long value = (long)(h);
+	        	long zmul = (long)(z);
 	        	
 	        	graphics.setColor(Color.BLUE);
-	        	value=(long)((h-lowest)/(double)fullRange*255d);
 	        	//graphics.setColor(new Color((int)(250),(int)(0),(int)(value)));
-	        	graphics.fillOval((int)(Ox+x*10), (int)(Oy+y*10), (int)(value*0.04d), (int)(value*0.04d));
+	        	if(zmul>0&&zmul<50)
+	        	graphics.fillOval((int)(Ox+x), (int)(Oy+y), (int)(zmul), (int)(zmul));
 	        	//graphics.drawLine((int)(Ox+x*10), (int)(Oy+y*10) ,(int)(Ox+x*10),(int)(Oy+y*10));
 	        	
 	     }

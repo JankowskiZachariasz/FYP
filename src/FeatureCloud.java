@@ -18,8 +18,8 @@ public class FeatureCloud {
 			double Rx = 0;
 			double Ry =0;
 			
-			double smallest =99999999;
-			int smallest_index=-1;
+			double smallest =999999999;
+			int smallest_index=1;
 			
 			for(int fr=0;fr<Right.features.size();fr++) {
 			
@@ -32,7 +32,7 @@ public class FeatureCloud {
 				Ry = Right.featurePositions.get(fr)[1];
 				
 				
-				if(Rx>Lx&&Math.abs(Ry-Ly)<1&&Math.abs(Rx-Lx)<400) {
+				if(Rx<Lx&&Math.abs(Ly-Ry)<3) {
 					double distance =0;
 					for(int v =0;v<128;v++) {
 						distance+=Math.abs(vectorR[v]-vectorL[v]);
@@ -51,8 +51,8 @@ public class FeatureCloud {
 				Ry = Right.featurePositions.get(smallest_index)[1];
 				features.add(vectorL);
 				double[] t = triangulate(Lx,Ly,Rx,Ry);
-				if(t[1]>-100&&t[1]<100)
-				featurePositions.add(t);
+				//if(t[1]>-100&&t[1]<100)
+				featurePositions.add(new double[] {Lx,Ly,t[1],t[2]});
 				
 				
 					//System.out.println(Lx+", "+Ly+", "+Rx+", "+Ry);
@@ -68,10 +68,10 @@ public class FeatureCloud {
 	
 	double[] triangulate(double lx, double ly, double rx, double ry) {
 		
-		double wly = ly*0.047388d;
-		double wlx = lx*0.056375d;
-		double wry = ry*0.047388d;
-		double wrx = rx*0.056375d;
+		double wly = ly*0.047388d/2;
+		double wlx = lx*0.056375d/2;
+		double wry = ry*0.047388d/2;
+		double wrx = rx*0.056375d/2;
 		
 		double x1 = wlx-22.74d;
 		double x2 = wrx-22.74d;
@@ -84,7 +84,7 @@ public class FeatureCloud {
 //		double y = (ly-270)*vectotMultiplier;
 //		double z = (603.56)*vectotMultiplier;
 //		Z = ( b * f ) / ( x1 - x2 )
-		double z = (2*14.3d)/(x1-x2);
+		double z = (2*14.3d)/Math.abs(x1-x2);
 //		X = x1 * Z / f
 		double	x= x1*z/14.3d;
 //		Y = y1 * Z / f
@@ -92,7 +92,7 @@ public class FeatureCloud {
 		
 		//double z = 14.3d*p;
 		
-		System.out.println(lx+", "+ly+", "+rx+", "+ry+", z:"+z+", x: "+x);
+		System.out.println("UWAGA!, Z:"+z);
 		return new double[] {x,y,z};
 	}
 }

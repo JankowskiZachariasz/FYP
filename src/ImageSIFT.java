@@ -12,9 +12,9 @@ import Jama.Matrix;
 public class ImageSIFT {
 	
 	//sift parameters
-	static double KEYPOINT_INTENSITY_THRESHOLD = 1.000d;
+	static double KEYPOINT_INTENSITY_THRESHOLD = 0.600d;
 	static double KAPPA_EDGES = 0.15d;
-	static double THRESHOLD_EDGES = -100000;
+	static double THRESHOLD_EDGES = -1000000;
 	
 	Octave[] octaves=null;
 	ArrayList<double[]> features=null;
@@ -30,7 +30,7 @@ public class ImageSIFT {
 		this.octaves = new Octave[5];
 		
 		for(int i=0;i<octaveCount;i++) {
-			this.octaves[i] = new Octave(img, 5, "1",(int)Math.pow(2,1+i));
+			this.octaves[i] = new Octave(img, 5, "1",(int)Math.pow(2,0+i));
 			if(i==0) {this.original=this.octaves[i].original;}
 			this.octaves[i].generate_guassians(guassians[0]);
 			this.octaves[i].generateDOGs();

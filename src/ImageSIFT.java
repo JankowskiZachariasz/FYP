@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import Jama.Matrix;
 
 
-
+//zrobi³em dwie zmiany (wielkosc obrazu)(ma byæ 0) oraz intesity threshold (ma byc 0.6)
 public class ImageSIFT {
 	
 	//sift parameters

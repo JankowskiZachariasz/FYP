@@ -3,20 +3,36 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 
+//this class can only afford one trajectory
 public class ANNdata {
 	
+	int NUMBER_OF_RAYS = 10;
+	
+	
 	ArrayList<double[]> points = null;
+	ArrayList<Ray> rays = null;
 	ArrayList<double[]> shifts = null;
-	double positionX=0;
-	double positionY=0;
+	
+	String fileBuffer="";
+	double positionX=0;//if set to 0 it means that the rat starts at 0,0 - which is only correct if it really does or
+	double positionY=0;//if we want the ANN to learn the general SLAM (with positions relative to the starting point)
 	double rotation=0;
-	double multiplier = 1.1d;
+	double multiplier = 1.0d;
+	
+	public ANNdata( ){
+	
+		points = new ArrayList<double[]>();
+		shifts = new ArrayList<double[]>();
+		rays = createRays();
+		
+	}
 	
 	public ANNdata(String path) {
 		
 		ArrayList<double[]> instructions = new ArrayList<double[]>();
 		points = new ArrayList<double[]>();
 		shifts = new ArrayList<double[]>();
+		rays = createRays();
 		
 		try {
 			FileReader reader = new FileReader(path);
@@ -36,7 +52,7 @@ public class ANNdata {
 				add[4]=Double.parseDouble(doubles[4]);
 				add[5]=Double.parseDouble(doubles[5]);
 				add[6]=Double.parseDouble(doubles[6]);
-				instructions.add(add);
+				instructions.add(add); 
 				
 			}
 			reader.close();
@@ -44,8 +60,11 @@ public class ANNdata {
 		e.printStackTrace();
 		}
 		
-		//initial rotation
+		//initial rotation and position
 		this.rotation= instructions.get(0)[4];
+		this.positionX= instructions.get(0)[2];
+		this.positionY= instructions.get(0)[0];
+		
 		
 		for(int y =1; y<instructions.size();y++) {
 			double[] previous = instructions.get(y-1);
@@ -66,6 +85,26 @@ public class ANNdata {
 		
 	}
 	
+	public void setTrajectory(ArrayList<double[]> shifts){
+		this.shifts = shifts;
+	}
+	
+	
+	private ArrayList<Ray> createRays(){
+		
+		ArrayList<Ray> basket = new ArrayList<Ray>();
+		double startingAngle = 29.267007901d;//+4
+		double completeViewAngle = 121.465984198d;//-8
+		
+		double currentAngle = startingAngle;
+		for(int i=0; i<NUMBER_OF_RAYS;i++) {
+			basket.add(new Ray(currentAngle));
+			currentAngle+=(completeViewAngle/(NUMBER_OF_RAYS-1));
+		}
+		
+		return basket;
+	}
+	
 	public void add(FeatureCloud nextCloud, int step) {
 		
 		double[] change = shifts.get(step-1);
@@ -73,10 +112,46 @@ public class ANNdata {
 		positionY+=change[1];
 		rotation+=change[2];
 		Transform transform = new Transform(nextCloud);
-		transform.rotate(0, 0, rotation);
-		transform.translate(-positionX*0.9d, positionY*0.9d);
+		
+		transform.translate(-positionY, positionX);
+		transform.rotate(-positionY, positionX, rotation);
 		addTransform(transform);
 		
+	}
+	
+	public void generateAnnStep(Transform t, int step,boolean camView) {
+		
+		
+		String s="";
+		double[] change = shifts.get(step-1);
+		positionX+=change[0];
+		positionY+=change[1];
+		rotation+=change[2];
+		for(int r =0;r<NUMBER_OF_RAYS;r++) {
+			s+=rays.get(r).distance(t,camView)+",";
+			
+		}
+		//System.out.println(s);
+		s+=positionX+",";
+		s+=positionY+",";
+		s+=rotation+",";
+
+		fileBuffer+=s;
+		
+		setTransform(t);
+		
+		
+	}
+	
+	public void saveTrajectory() {}
+	
+	public void setTransform(Transform t) {
+		points = new ArrayList<double[]>();
+		for(int i=0;i<t.points.length;i++) {
+			
+			points.add(t.points[i]);
+			
+		}
 	}
 	
 	public void addTransform(Transform t) {
@@ -87,6 +162,73 @@ public class ANNdata {
 		}
 	}
 
+}
+
+class Ray{
+	double angle, a,distance;
+	final double DISTANCE_THRESHOLD = 0.5d;
+	
+	public Ray(double angle) {
+			
+		this.a = -Math.tan((angle/360)*2*Math.PI);
+		this.angle = angle;
+	}
+	
+	public double distance(Transform t,boolean camView) {
+		
+		double[] histogram = new double[300];
+		for(int i =0; i<t.points.length;i++ ) {
+			int index = distance(t.points[i][0],t.points[i][2]);
+			if(index!=-1) {
+				
+				if(index>299)index=299;
+				histogram[index]+=1;
+			}
+			
+			
+		}
+		double largest=-1;
+		int index =-1;
+		
+		if(camView)
+		for(int v=0;v<300;v++) {
+			if(histogram[v]>=largest) {
+				largest=histogram[v];
+				index = v;
+			}
+		}
+		else
+		for(int v=299;v>=0;v--) {
+			if(histogram[v]>=2) {
+				largest=histogram[v];
+				index = v;
+			}
+		}
+		
+		
+		
+		this.distance= (double)index/10d;
+		return (double)index/10d;
+	}
+	
+	private int distance(double x, double z) {
+		
+		if(z<0)return -1;
+		
+		double lineDistance = Math.abs(a*x-1*z)/Math.sqrt(a*a+1);
+		
+		if(lineDistance<=DISTANCE_THRESHOLD) {
+			double centerDistance = Math.sqrt(x*x+z*z);
+			if (centerDistance>30) centerDistance=30d;
+			return (int)Math.round(centerDistance*10);
+			
+		}
+		else return -1;
+		
+		//-1 means that a point isn't in close proximity to a line
+	}
+	
+	
 }
 
 

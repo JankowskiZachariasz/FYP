@@ -237,4 +237,15 @@ class Transform{
 			pointsFinal[i]=FC.featurePositions.get(i-1);
 		}
 	}
+	
+	public Transform(double[][] FC) {
+		pointsFinal = new double[FC.length+1][3];
+		points = new double[FC.length+1][3];
+		points[0]=new double[] {0d,0d,0d};
+		pointsFinal[0]=new double[] {0d,0d,0d};
+		for(int i=1;i<FC.length+1;i++) {
+			points[i]=FC[i-1];
+			pointsFinal[i]=FC[i-1];
+		}
+	}
 }

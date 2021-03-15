@@ -216,7 +216,7 @@ public class ImageSIFT {
 						double ym1 = o.guassianised[ss][(int)posX][(int)posY-1];
 						
 						double gradientMagnitude = Math.sqrt(Math.pow(xp1-xm1, 2)+Math.pow(yp1-ym1, 2));
-						double gradientOrientation = Math.toDegrees(Math.atan((yp1-ym1)/(xp1-xm1)));
+						//double gradientOrientation = Math.toDegrees(Math.atan((yp1-ym1)/(xp1-xm1)));
 			
 						
 					    //double distance = Math.sqrt(Math.pow(posX-x, 2)+Math.pow(posY-y, 2));
@@ -320,7 +320,7 @@ public class ImageSIFT {
 											double ym1 = o.guassianised[ss][(int)cx][(int)cy-1];
 											
 											double gradientMagnitude = Math.sqrt(Math.pow(xp1-xm1, 2)+Math.pow(yp1-ym1, 2));
-											double gradientOrientation = Math.toDegrees(Math.atan((yp1-ym1)/(xp1-xm1)));
+											//double gradientOrientation = Math.toDegrees(Math.atan((yp1-ym1)/(xp1-xm1)));
 								
 											
 										    //double distance = Math.sqrt(Math.pow(posX-x, 2)+Math.pow(posY-y, 2));
@@ -610,20 +610,6 @@ public class ImageSIFT {
 			
 		}
 		
-		public void subtractHarris(BufferedImage bia, BufferedImage bib) {
-		
-
-		    
-		    for( int i = 0; i < w-size; i++ )
-	        for( int j = 0; j < h-size; j++ ) {
-	        	
-
-	        	Color a = new Color(bia.getRGB( i, j));
-	        	Color b = new Color(bib.getRGB( i, j));
-	        	
-			}
-			
-		}
 		
 		public void computeHarrisdeterminant  () {
 			

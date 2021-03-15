@@ -7,6 +7,8 @@ import java.awt.image.ColorConvertOp;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
@@ -29,7 +31,8 @@ public class Main {
 	static FeatureCloud FC=null;
 	static FeatureCloud previous=null;
 	static SimpleICP drawICP = null;
-	static ANNdata ann = null;
+	public static ANNdata ann = null;
+	public static Simulator sim, sim2;
 
 	
 	
@@ -38,7 +41,27 @@ public class Main {
 		guassians=generateGuassians();
 		initiliseUI();
 		ann=new ANNdata("C:\\Users\\Lenovo\\Desktop\\dane\\trajectory1.txt");
-		
+		sim = new Simulator(true,false,false);
+		sim2 = new Simulator(true,false,true); 
+		sim.setMapVerticies(new double[][] {
+			{-6.92d,-20.76d},
+			{-4.25d,-10.19d},
+			{-4.251d,2.72d},
+			{6.14d,8.19d},
+			{13.57d,0.73d},
+			{23.44d,-2.25d},
+			{23.94d,-11.43d},
+			{20.22d,-16.16d},
+			{11.98d,-15.34d},
+			{7.49d,-17.53d},
+			{4.57d,-10.83d},
+			{3.61d,-11.1d},
+			{6.56d,-18.02d},
+			{3.1d,-19.85d},
+			
+		});
+		sim.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectory1.txt"});
+		sim2.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectory1.txt"});
 
 		
 		for(int loop=1;loop<=NUMBER_OF_POSES;loop++) {
@@ -53,10 +76,18 @@ public class Main {
 //			FeatureCloud cloud = new FeatureCloud(LI,RI);
 //			FC=cloud;
 //			saveData(FC, loop);
-			FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\Cloud"+loop+".txt");
-			FC=cloud;
-			ann.add(cloud, loop);
 			
+			FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\Cloud"+loop+".txt");
+//			FC=cloud;
+			ann.add(cloud, loop);
+			//ann.generateAnnStep(new Transform(cloud),loop);
+//			sim2.setMapPoints(cloud.featurePositions, null);
+//			sim.simulateOneStep();
+//			sim2.simulateOneStep();
+//			try {TimeUnit.SECONDS.sleep(7);}catch(Exception exc) {}
+
+
+		
 			
 			if(previous!=null) {
 //				SimpleICP icp = new SimpleICP(previous, cloud);
@@ -73,8 +104,13 @@ public class Main {
 		}
 		
 		
+		sim2.setMapPoints(ann.points, null);
 		
-		
+		for(int z=0;z<100;z++) {
+			sim.simulateOneStep();
+			sim2.simulateOneStep();
+			try {TimeUnit.SECONDS.sleep(1);}catch(Exception exc) {}
+		}
 		
 
 		
@@ -128,8 +164,12 @@ public class Main {
 //			drawICP(drawICP,500,500);
 //		}
 		
-		if(ann!=null) {
-			drawANNdata(ann,700,600);
+		if(sim!=null&&sim.ann!=null) {
+			drawANNdata(sim.ann,500,600);
+		}
+		
+		if(sim2!=null&&sim2.ann!=null) {
+			drawANNdata(sim2.ann,1400,600);
 		}
 		
 	}
@@ -142,6 +182,12 @@ public class Main {
         	graphics.setColor(Color.BLUE);
         	graphics.fillOval((int)(Ox+x*20), (int)(Oy+z*20), (int)(5), (int)(5));	        	
      }
+		for(int r=0;r<ann.rays.size();r++) {
+			double angle = ann.rays.get(r).angle;
+			double distance = ann.rays.get(r).distance;
+			graphics.drawLine((int)(Ox+0), (int)(Oy+0), (int)(Ox+20*-distance*Math.cos((angle/360d)*2*Math.PI)), (int)(Oy+20*-distance*Math.sin((angle/360d)*2*Math.PI)));  
+			
+		}
 		
 	}
 	
@@ -175,7 +221,6 @@ public class Main {
 		 
 	}
 	
-	
 	static void DrawImage(ImageSIFT sift, double Ox, double Oy) {
 		
 		  double highest = 0;
@@ -202,25 +247,20 @@ public class Main {
 	
 	static void DrawCloudPlane(FeatureCloud cloud, double Ox, double Oy) {
 
-		  double highest = 10;
-	        double lowest = -10;
-		double fullRange = Math.abs(highest-lowest);
 		
 		 for(int i=0;i<cloud.featurePositions.size();i++) {
 	        	
 	        	double x = cloud.featurePositions.get(i)[0];
 	        	double y = cloud.featurePositions.get(i)[1];
-	        	double h = cloud.featurePositions.get(i)[2];
 	        	double z = cloud.featurePositions.get(i)[3];
 	        	
-	        	long value = (long)(h);
+	
 	        	long zmul = (long)(z);
 	        	
 	        	graphics.setColor(Color.BLUE);
-	        	//graphics.setColor(new Color((int)(250),(int)(0),(int)(value)));
+
 	        	if(zmul>0&&zmul<50)
 	        	graphics.fillOval((int)(Ox+x), (int)(Oy+y), (int)(zmul), (int)(zmul));
-	        	//graphics.drawLine((int)(Ox+x*10), (int)(Oy+y*10) ,(int)(Ox+x*10),(int)(Oy+y*10));
 	        	
 	     }
 			
@@ -229,20 +269,12 @@ public class Main {
 	
 	static void DrawCloud(FeatureCloud cloud, double Ox, double Oy) {
 
-		  double highest = 30;
-	        double lowest = 0;
-//		for(int i=0;i<cloud.featurePositions.size();i++) {
-//			double value = cloud.featurePositions.get(i)[2];
-//        	if (value>highest)highest=value;
-//        	if (value<lowest)lowest=value; 	
-//		}
-		double fullRange = Math.abs(highest-lowest);
+
+
 		 for(int i=0;i<cloud.featurePositions.size();i++) {
 	        	
 	        	double x = cloud.featurePositions.get(i)[0];
 	        	double h = -cloud.featurePositions.get(i)[2];
-	        	double y = cloud.featurePositions.get(i)[1];
-	        	
 	        	long value = (long)(h);
 	        	
 	        	//graphics.setColor(Color.BLUE);

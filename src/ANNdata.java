@@ -124,18 +124,23 @@ public class ANNdata {
 		
 		String s="";
 		double[] change = shifts.get(step-1);
-		positionX+=change[0];
 		positionY+=change[1];
+		positionX+=change[0];
 		rotation+=change[2];
 		for(int r =0;r<NUMBER_OF_RAYS;r++) {
 			s+=rays.get(r).distance(t,camView)+",";
 			
 		}
 		//System.out.println(s);
-		s+=positionX+",";
-		s+=positionY+",";
-		s+=rotation+",";
-
+		
+		s+=-change[1]+",";
+		s+=change[0]+",";
+		s+=change[2]+",";
+		
+//		s+=-positionY+",";
+//		s+=positionX+",";
+//		s+=rotation+",";
+//		s+="\r\n";
 		fileBuffer+=s;
 		
 		setTransform(t);

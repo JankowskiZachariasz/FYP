@@ -4,9 +4,12 @@ import java.awt.Graphics;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorConvertOp;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
@@ -22,9 +25,9 @@ public class Main {
 	static BufferStrategy bufferStrategy;
 	static Graphics graphics;
 	
-	static String FILENAME_PREFIX = "t1_";
-	static String PATH = "C:\\Users\\Lenovo\\Desktop\\dane\\";
-	static int NUMBER_OF_POSES = 20;
+	static String FILENAME_PREFIX = "t";
+	static String PATH = "C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\screenshots\\trajectory1\\";
+	static int NUMBER_OF_POSES = 144;
 	static int[][][][] guassians = null;
 	
 	static ImageSIFT A=null,B=null;
@@ -38,86 +41,159 @@ public class Main {
 	
 	
 	public static void main(String[] args) {
-		guassians=generateGuassians();
+
 		initiliseUI();
-		ann=new ANNdata("C:\\Users\\Lenovo\\Desktop\\dane\\trajectory1.txt");
-		sim = new Simulator(true,false,false);
-		sim2 = new Simulator(true,false,true); 
-		sim.setMapVerticies(new double[][] {
-			{-6.92d,-20.76d},
-			{-4.25d,-10.19d},
-			{-4.251d,2.72d},
-			{6.14d,8.19d},
-			{13.57d,0.73d},
-			{23.44d,-2.25d},
-			{23.94d,-11.43d},
-			{20.22d,-16.16d},
-			{11.98d,-15.34d},
-			{7.49d,-17.53d},
-			{4.57d,-10.83d},
-			{3.61d,-11.1d},
-			{6.56d,-18.02d},
-			{3.1d,-19.85d},
-			
-		});
-		sim.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectory1.txt"});
-		sim2.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectory1.txt"});
-
 		
-		for(int loop=1;loop<=NUMBER_OF_POSES;loop++) {
-			
-//			BufferedImage Lbi = loadFromFile(PATH+FILENAME_PREFIX+loop+'l'+".PNG");
-//			BufferedImage Rbi = loadFromFile(PATH+FILENAME_PREFIX+loop+'r'+".PNG");
-//	
-//			ImageSIFT LI = new ImageSIFT(Lbi,5,guassians);
-//			ImageSIFT RI = new ImageSIFT(Rbi,5,guassians);
-//			B=RI;
-//			A=LI;
-//			FeatureCloud cloud = new FeatureCloud(LI,RI);
-//			FC=cloud;
-//			saveData(FC, loop);
-			
-			FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\Cloud"+loop+".txt");
-//			FC=cloud;
-			ann.add(cloud, loop);
-			//ann.generateAnnStep(new Transform(cloud),loop);
-//			sim2.setMapPoints(cloud.featurePositions, null);
-//			sim.simulateOneStep();
-//			sim2.simulateOneStep();
-//			try {TimeUnit.SECONDS.sleep(7);}catch(Exception exc) {}
-
-
-		
-			
-			if(previous!=null) {
-//				SimpleICP icp = new SimpleICP(previous, cloud);
-//				drawICP = icp;
-				//double[] shift = icp.computeShift1();
-				
-//				System.out.println("X: "+shift[0]);
-//				System.out.println("Z: "+shift[1]);
-//				System.out.println("Rotation: "+shift[2]);
-			}
-			
-			previous=FC;
-			
-		}
-		
-		
-		sim2.setMapPoints(ann.points, null);
-		
-		for(int z=0;z<100;z++) {
-			sim.simulateOneStep();
-			sim2.simulateOneStep();
-			try {TimeUnit.SECONDS.sleep(1);}catch(Exception exc) {}
-		}
-		
+		//generateTrajectories(10,20);
+		//processPhotos();
+		//GenerateNeuralNetData();
+		ICP();
 
 		
 	}
+	
+
+	
+	static void ICP(){
+		
+		KalmanFilter filterA = new KalmanFilter();
+		
+		ann=new ANNdata("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\trajectories\\trajectory1\\t.txt");
+		for(int loop=1;loop<=NUMBER_OF_POSES;loop++) {
+		FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\screenshots\\trajectory1\\Cloud"+loop+".txt");
+		FC=cloud;
+		ann.add(cloud, loop);
+		
+		if(previous!=null) {
+			SimpleICP icp = new SimpleICP(previous, cloud, false);
+			drawICP = icp;
+			double[] shift = filterA.filter(icp.RANSAC());
+			
+			System.out.println("X: "+shift[0]);
+			System.out.println("Z: "+shift[1]);
+			System.out.println("Rotation: "+shift[2]);
+			
+			try {TimeUnit.MILLISECONDS.sleep(1200);}catch(Exception exc) {}
+		}
+		previous=FC;
+		}
+	}
+	
+	static void processPhotos() {
+		guassians=generateGuassians();
+		for(int loop=1;loop<=NUMBER_OF_POSES;loop++) {
+			
+			BufferedImage Lbi = loadFromFile(PATH+FILENAME_PREFIX+loop+'l'+".PNG");
+			BufferedImage Rbi = loadFromFile(PATH+FILENAME_PREFIX+loop+'r'+".PNG");
+	
+			ImageSIFT LI = new ImageSIFT(Lbi,5,guassians);
+			ImageSIFT RI = new ImageSIFT(Rbi,5,guassians);
+			B=RI;
+			A=LI;
+			FeatureCloud cloud = new FeatureCloud(LI,RI);
+			FC=cloud;
+			saveData(FC, loop);
+		}
+	}
+	
+	static void generateTrajectories(int points,int count) {
+		sim = new Simulator(true,false,false);
+		sim.setMapVerticies(new double[][] {
+			{2.87, 1.81},
+			{12.58, 2.75},
+			{16.11, 4.61},
+			{13.19, 11,37},
+			{14.04, 11.83},
+			{17.04, 5.05},
+			{21.52, 7.27},
+			{29.63, 6.43},
+			{33.5, 11},
+			{32.98, 20.37},
+			{23.08, 23.43},
+			{15.67, 30.83},
+			{5.4, 25.4},
+			{5.36, 12.48},		
+		});
+	for(int i=1;i<=count;i++)
+	saveTrajectory(sim.generateRandomTrajectory(points),"C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\trajectories\\trajectory"+i+"\\","t");
+	}
+	
+	static void GenerateNeuralNetData() {
+		ArrayList<String> samples= new ArrayList<String>();
+		String sample="";
+		for(int f=0;f<5000;f++) {
+			
+			sim = new Simulator(true,false,false);
+			sim.setMapVerticies(new double[][] {
+				{2.87, 1.81},
+				{12.58, 2.75},
+				{16.11, 4.61},
+				{13.19, 11,37},
+				{14.04, 11.83},
+				{17.04, 5.05},
+				{21.52, 7.27},
+				{29.63, 6.43},
+				{33.5, 11},
+				{32.98, 20.37},
+				{23.08, 23.43},
+				{15.67, 30.83},
+				{5.4, 25.4},
+				{5.36, 12.48},		
+			});
+			
+			
+		
+		saveTrajectory(sim.generateRandomTrajectory(2),"C:\\Users\\Lenovo\\Desktop\\dane\\trajectories\\Room A\\","temp");
+		sim.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectories\\Room A\\temp.txt"});
+		for(int z=0;z<sim.ann.shifts.size();z++) {
+			sim.simulateOneStep();
+			//try {TimeUnit.MILLISECONDS.sleep(100);}catch(Exception exc) {}
+		}
+		
+		samples.add(sim.ann.fileBuffer);
+		System.out.println(f);
+		}
+		
+		
+		
+		saveANNsamples(samples,"C:\\Users\\Lenovo\\Desktop\\dane\\ANN samples\\","ANN_A");
+		
+	}
+	
+	static void saveANNsamples(ArrayList<String> ANNsamples, String directoryPath, String filename) {
+		 try {
+			 FileWriter writer = new FileWriter(directoryPath+filename+".txt");
+		      // Creates a BufferedWriter
+		      BufferedWriter output = new BufferedWriter(writer);
+
+			 	
+			 	for(int i=0;i<ANNsamples.size();i++) {
+			 		String current = ANNsamples.get(i);
+			 		output.write(current);
+			 		output.write("\r\n");
+			 		 
+			 	}
+			      // Closes the writer
+			      output.close();
+	            writer.close();
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	        }
+	}
+	
+	static void saveTrajectory(String trajectory, String directoryPath, String filename) {
+		 try {
+			 	PrintWriter writer = new PrintWriter(directoryPath+filename+".txt");
+	            writer.write(trajectory);
+	            writer.close();
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	        }
+	}
+	
 	static void saveData(FeatureCloud cloud, int oridinalName){
 	       try {
-	            FileWriter writer = new FileWriter("C:\\Users\\Lenovo\\Desktop\\dane\\Cloud"+oridinalName+".txt", true);
+	            FileWriter writer = new FileWriter("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\screenshots\\trajectory1\\Cloud"+oridinalName+".txt", true);
 	            String currentFeature="";
 	            for(int i = 0; i<cloud.featurePositions.size();i++)
 	            {
@@ -144,29 +220,29 @@ public class Main {
 		graphics.setColor(Color.WHITE);
 		graphics.fillRect((int)0, (int)0, 960*2, 520*2);
 		
-//		if(A!=null) {
-//		DrawImage(A,0,0);
-//		//DrawAllFeatures(A,0,0);
-//		}
-//		
-//		if(B!=null) {
-//			DrawImage(B,960,0);
-//			//DrawAllFeatures(A,0,0);
-//			}
-//		
-//
+		if(A!=null) {
+		DrawImage(A,0,0);
+		//DrawAllFeatures(A,0,0);
+		}
+		
+		if(B!=null) {
+			DrawImage(B,960,0);
+			//DrawAllFeatures(A,0,0);
+			}
+		
+
 //		if(FC!=null) {
 //			//DrawCloudPlane(FC,0,0);
 //			DrawCloud(FC,960,800);
-//			
-//		}
-//		if(drawICP!=null) {
-//			drawICP(drawICP,500,500);
 //		}
 		
-		if(sim!=null&&sim.ann!=null) {
-			drawANNdata(sim.ann,500,600);
+		if(drawICP!=null) {
+			drawICP(drawICP,500,500);
 		}
+		
+//		if(sim!=null&&sim.ann!=null) {
+//			drawANNdata(sim.ann,500,600);
+//		}
 		
 		if(sim2!=null&&sim2.ann!=null) {
 			drawANNdata(sim2.ann,1400,600);
@@ -344,6 +420,29 @@ public class Main {
 
 	}
 
+	static class KalmanFilter{
+		double[] KalmanGain = {0d,0d,0d};
+		double[] EstimationError ={1d,1d,1d};
+		double[] MeasurementError ={1d,1d,1d};
+		double[] previousEstimate ={0d,0d,0d};
+		double[] currentEstimate ={0d,0d,0d};
+		double[] NextEstimate ={0d,0d,0d};
+		
+		double[] filter(double[] measurement){
+			
+			
+			for(int i =0;i<3;i++) {
+				KalmanGain[i]=EstimationError[i]/(EstimationError[i]+MeasurementError[i]);
+				currentEstimate[i]=previousEstimate[i]+(KalmanGain[i]*(measurement[i]-previousEstimate[i]));
+				EstimationError[i]=(1-KalmanGain[i])*EstimationError[i];
+				previousEstimate[i]=currentEstimate[i];
+			}
+			
+
+			return new double[] {currentEstimate[0],currentEstimate[1],currentEstimate[2]};
+		}
+	} 
+	
 	static class Concurrently implements Runnable {
 		public void run(){
 		

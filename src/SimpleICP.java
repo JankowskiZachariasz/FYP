@@ -2,19 +2,20 @@ import java.util.ArrayList;
 
 public class SimpleICP {
 	
-	ArrayList<double[]> featureMatches=null;//prevIndex,prevX,prevZ,,currIndex,currX,currZ,distance
-	static double PROXIMITY_THRESHOLD = 5000;
-	static double PHYSICAL_DISTANCE_THRESHOLD = 1;
-	
+	ArrayList<double[]> featureMatches=null, fetureCopied=null;//prevIndex,prevX,prevZ,,currIndex,currX,currZ,distance
+	static double PROXIMITY_THRESHOLD = 10000;
+	static double PHYSICAL_DISTANCE_THRESHOLD = 2;
 	Transform prev = null;
 	Transform curr = null;
-	
 	int prevMarked = -1;
 	int currMarked = -1;
+	boolean useKalman=false;
+
+	
+
 	
 
 	public double[] computeShift1() {
-		
 		
 		//first method will be applying translation so that the best matching points are at the same spot
 		//and then rotating the entire cloud around that spot to see which orientation makes for the best
@@ -26,10 +27,10 @@ public class SimpleICP {
 		
 		for(int x=0;x<20;x++) {
 			for(int z=0;z<20;z++) {
-				curr.translate((x-10)/5d, (z-10)/5d);
-				curr.rotate((x-10)/5d, (z-10)/5d,-30);
+				curr.translate((x-10)/10d, (z-10)/10d);
+				curr.rotate((x-10)/10d, (z-10)/10d,-30);
 				for(int r=-30;r<30;r++) {
-					curr.rotate((x-10)/5d, (z-10)/5d, 1);
+					curr.rotate((x-10)/10d, (z-10)/10d, 1);
 					int score = curr.computeMatchingScore(prev);
 					if(bestScore<score) {
 						bestShift= new double[]{curr.points[0][0],curr.points[0][2],r};
@@ -45,19 +46,164 @@ public class SimpleICP {
 		
 		
 		
-		//return new double[] {0,0,0};
+
 		return new double[] {bestShift[0],bestShift[1],bestShift[2]};
 	}
-	
-	public SimpleICP(FeatureCloud t_minus_1, FeatureCloud t) {
+
+	public double[] RANSAC() {
 		
+		int bestScore=0;
+		double[] best= new double[3];
+		//looking for a, x, z values
+		   //pick 3 best matches 
+		for(int p=0;p<10;p++) {
+			
+		copyFeatures();
+		double[][] matchedPoints = takeBestMAtches();
+		double[] transform = computeTransform(matchedPoints);
+		curr.rotate(0, 0, -transform[2]);
+		curr.translate(transform[0],transform[1]);
+		int score = curr.computeMatchingScore(prev);
+		curr.resetPositions();
+		
+		if(bestScore<score) {
+			bestScore=score;
+			best=transform;
+		}
+		
+		
+		
+	}
+		double[] answer = best;
+		return answer;
+	}
+	
+	
+	void copyFeatures() {
+		fetureCopied = new ArrayList<double[]>();
+		
+		for(int i=0;i<featureMatches.size();i++) {
+			double [] c = featureMatches.get(i);
+			fetureCopied.add(new double[] {c[0],c[1],c[2],c[3],c[4],c[5],c[6],});
+		}
+	}
+	
+	double[] computeTransform(double[][] m) {
+		
+		Point Ap = new Point(m[0][1],m[0][2]);
+		Point A = new Point(m[0][4],m[0][5]);
+		
+		Point Bp = new Point(m[1][1],m[1][2]);
+		Point B = new Point(m[1][4],m[1][5]);
+		
+		Point Cp = new Point(m[2][1],m[2][2]);
+		Point C = new Point(m[2][4],m[2][5]);
+		//constructing equation 1 from match 1 and 3
+		double equals1 = Cp.y-Ap.y;
+		double sin1 = -C.y-(-A.y);
+		double cos1 = C.x-A.x;
+		//constructing equation 1 from match 1 and 3
+		double equals2 = Cp.y-Bp.y;
+		double sin2 = -C.y-(-B.y);
+		double cos2 = C.x-B.x;
+
+		double[] histogram1 = solveTrygonometricEquation(equals1,sin1,cos1);
+		double[] histogram2 = solveTrygonometricEquation(equals2,sin2,cos2);
+		
+		double smallest=10;
+		double smallestIndex=-300;
+		for(int i=-100;i<101;i++) {
+			double value = histogram1[i+100]+histogram2[i+100];
+		if(value<smallest) {
+			smallestIndex=i;
+			smallest=value;
+		}
+			
+		}
+		double rotation = (Math.PI*(double)smallestIndex)/100d;
+		
+		double h1=Ap.x-(A.x*Math.cos(rotation)-A.y*Math.sin(rotation));
+		double h2=Bp.x-(B.x*Math.cos(rotation)-B.y*Math.sin(rotation));
+		double h3=Cp.x-(C.x*Math.cos(rotation)-C.y*Math.sin(rotation));
+		
+		double k1=Ap.y-(A.x*Math.sin(rotation)+A.y*Math.cos(rotation));
+		double k2=Bp.y-(B.x*Math.sin(rotation)+B.y*Math.cos(rotation));
+		double k3=Cp.y-(C.x*Math.sin(rotation)+C.y*Math.cos(rotation));
+		
+		return new double[]{h1,k1,smallestIndex};
+	}
+	
+	double[] solveTrygonometricEquation(double equals, double sin, double cos) {
+		
+		double[] histogram = new double[201];
+		
+		for(int i=-100;i<101;i++) {
+			double angle = (Math.PI*(double)i)/100d;
+			double value = sin*Math.sin(angle)+cos*Math.cos(angle);
+			double distance = Math.abs(value-equals);
+			histogram[i+100]=distance;
+		}
+		
+		return histogram;
+	}
+	
+	
+	
+	double[][] takeBestMAtches(){
+		double[][] pickedMatches = new double[3][7];
+		
+		double first=0,second=0,third=0;
+		int firstIndex=0,secondIndex=0,thirdIndex=0;
+		
+		for(int i=0;i<fetureCopied.size();i++) {
+			double d = fetureCopied.get(i)[6];
+			
+			if(d>first) {firstIndex=i;first=d;}
+			else if(d>second) {secondIndex=i;second=d;}
+			else if(d>third) {thirdIndex=i;third=d;}
+			
+		}
+		
+		pickedMatches[0]=fetureCopied.get(firstIndex);
+		pickedMatches[1]=fetureCopied.get(secondIndex);
+		pickedMatches[2]=fetureCopied.get(thirdIndex);
+		
+		featureMatches.remove(firstIndex);
+		
+		return pickedMatches;
+	}
+	
+	
+	
+	private double InferRotation(Point A, Point B) {
+		//Point A acts as a pivot
+		double yShift = (B.x-A.x);
+		double xShift = (B.y-A.y);
+		double angle = Math.toDegrees(Math.atan(yShift==0?(xShift*99999999):(xShift/yShift)));
+	    
+	    double result=0;
+	    if(xShift<=0) {
+	    	if(yShift<0) {result=90-angle;}
+	    	else {result=270-angle;}}
+	    else {
+	    	if(yShift<0) {result=90-angle;}
+	    	else {result=270-angle;}}
+		
+		
+		
+		return result;
+	}
+	
+	public SimpleICP(FeatureCloud t_minus_1, FeatureCloud t, boolean kalman) {
+		
+		useKalman=kalman;
 		prev = new Transform(t_minus_1);
 		curr = new Transform(t);
 		//now we're matching the features
 		this.featureMatches = new ArrayList<double[]>();
 		match_features(t_minus_1,t);
 		
-		System.out.println(featureMatches.size());
+		//System.out.println(featureMatches.size());
 		
 		//itteratively apply transform that will bring both matched features closer together
 		
@@ -121,7 +267,7 @@ public class SimpleICP {
 class Transform{
 	double[][] points;
 	final double[][] pointsFinal;
-	double MINIMAL_DISTANCE = 0.5d;
+	double MINIMAL_DISTANCE = 0.1d;
 	
 	//computes mass center of points within radius
 	public double[] computeCenter(double radius) {

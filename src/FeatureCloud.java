@@ -25,14 +25,12 @@ public class FeatureCloud {
 					String[] doubles = line.split(";");
 					double[] newVector = new double[128];
 					if(doubles.length==131){
-					for(int i=0;i<128;i++) {
-						
-						newVector[i]=Double.parseDouble(doubles[i]);
-					}
+					for(int i=0;i<128;i++) {newVector[i]=Double.parseDouble(doubles[i]);}
 					
 					double x = Double.parseDouble(doubles[128]);
 					double y = Double.parseDouble(doubles[129]);
 					double z = Double.parseDouble(doubles[130]);
+					
 					this.features.add(newVector);
 					this.featurePositions.add(new double[] {x,y,z});
 				}
@@ -109,31 +107,21 @@ public class FeatureCloud {
 	
 	double[] triangulate(double lx, double ly, double rx, double ry) {
 		
-		//double wly = ly*0.047388d/2.2f;
+		
+		//converting the pixel positions to sensor dimensions
 		double wlx = lx*0.1;
-		//double wry = ry*0.047388d/2.2f;
 		double wrx = rx*0.1;
 		
+		//setting the center in the middle of the sensor
 		double x1 = wlx-96d;
 		double x2 = wrx-96d;
-		//double y1 = 12.795d-wly;
-		//double y2 = wry-12.795d;
 		
-		
-		
-//		double x = (lx-480)*vectotMultiplier;
-//		double y = (ly-270)*vectotMultiplier;
-//		double z = (603.56)*vectotMultiplier;
-//		Z = ( b * f ) / ( x1 - x2 )
+		//computing match coordinates
 		double z = (2*45.31138d)/(x1-x2);
-//		X = x1 * Z / f
-		double	x= x1*z/45.31138d;
-//		Y = y1 * Z / f
+		double x = x1*z/45.31138d;
 		double y = 1*z/45.31138d;
 		
-		//double z = 14.3d*p;
-		
-		//System.out.println("UWAGA!, Z:"+z);
+
 		return new double[] {x,y,z};
 	}
 }

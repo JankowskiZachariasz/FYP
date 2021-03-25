@@ -33,7 +33,7 @@ public class Main {
 	static ImageSIFT A=null,B=null;
 	static FeatureCloud FC=null;
 	static FeatureCloud previous=null;
-	static SimpleICP drawICP = null;
+	static SLAM drawICP = null;
 	public static ANNdata ann = null;
 	public static Simulator sim, sim2;
 
@@ -47,36 +47,132 @@ public class Main {
 		//generateTrajectories(10,20);
 		//processPhotos();
 		//GenerateNeuralNetData();
+		//showcaseSimulator();
+		//buildMapFromClouds();
 		ICP();
+		
+		//
 
 		
 	}
-	
+	static void buildMapFromClouds() {
+		
 
+	
+		ann=new ANNdata("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\trajectories\\trajectory1\\t.txt");
+	
+		for(int z=1;z<=5;z++) {		
+			FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\screenshots\\trajectory1\\Cloud"+z+".txt");
+			ann.add(cloud,  z);
+			try {TimeUnit.MILLISECONDS.sleep(1000);}catch(Exception exc) {}
+		}
+		
+	}
+	
+	static void showcaseSimulator() {
+		 
+				ArrayList<String> samples= new ArrayList<String>();
+				String sample="";
+				for(int f=0;f<5000;f++) {
+					
+					sim = new Simulator(true,true,true);				
+				//saveTrajectory(sim.generateRandomTrajectory(2),"C:\\Users\\Lenovo\\Desktop\\dane\\trajectories\\Room A\\","temp");
+				//sim.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectories\\Room A\\temp.txt"});
+				sim.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\trajectories\\trajectory1\\t.txt"});
+				for(int z=0;z<sim.ann.shifts.size();z++) {
+					FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\screenshots\\trajectory1\\Cloud"+z+".txt");
+				
+					sim.setMapPoints(cloud.featurePositions, sim.vertices);
+					sim.simulateOneStep();
+					try {TimeUnit.MILLISECONDS.sleep(1000);}catch(Exception exc) {}
+				}
+				
+				samples.add(sim.ann.fileBuffer);
+				System.out.println(f);
+				}
+				
+				
+				
+				saveANNsamples(samples,"C:\\Users\\Lenovo\\Desktop\\dane\\ANN samples\\","ANN_A");
+				
+			
+	}
 	
 	static void ICP(){
 		
 		KalmanFilter filterA = new KalmanFilter();
+		KalmanFilter filterB = new KalmanFilter();
+		
+		ArrayList<double[]> results = new ArrayList<double[]>(); 
 		
 		ann=new ANNdata("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\trajectories\\trajectory1\\t.txt");
+		
+		
 		for(int loop=1;loop<=NUMBER_OF_POSES;loop++) {
 		FeatureCloud cloud = new FeatureCloud("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\screenshots\\trajectory1\\Cloud"+loop+".txt");
 		FC=cloud;
 		ann.add(cloud, loop);
 		
 		if(previous!=null) {
-			SimpleICP icp = new SimpleICP(previous, cloud, false);
+			SLAM icp = new SLAM(previous, cloud);
 			drawICP = icp;
-			double[] shift = filterA.filter(icp.RANSAC());
+			double[] shift = icp.bruteForceICP(8);//filterA.filter(
+			double[] shiftKalman = filterA.filter(shift);//filterA.filter(
 			
-			System.out.println("X: "+shift[0]);
-			System.out.println("Z: "+shift[1]);
-			System.out.println("Rotation: "+shift[2]);
+			double[] ransac = icp.bruteForceICP(loop);//filterA.filter(
+			double[] ransacKalman = filterB.filter(ransac);//filterA.filter(			
 			
-			try {TimeUnit.MILLISECONDS.sleep(1200);}catch(Exception exc) {}
+			double[] Trueshift = ann.shifts.get(loop-1);
+			System.out.println(loop+"True X: "+ -Trueshift[0]);
+			System.out.println(loop+"True Z: "+ -Trueshift[1]);
+			System.out.println(loop+"True Rotation: "+Trueshift[2]);
+			
+			results.add(new double[]{
+					
+					-Trueshift[0],-Trueshift[1],Trueshift[2],
+					shift[0],shift[1],shift[2],
+					shiftKalman[0],shiftKalman[1],shiftKalman[2],
+					ransac[0],ransac[1],ransac[2],
+					ransacKalman[0],ransacKalman[1],ransacKalman[2],
+					
+			});
+			
+			
+			try {TimeUnit.MILLISECONDS.sleep(1);}catch(Exception exc) {}
+			
 		}
+		
 		previous=FC;
 		}
+		saveICPResults(results);
+		
+	}
+	
+	static void saveICPResults(ArrayList<double[]> data){
+		 try {
+			 FileWriter writer = new FileWriter("C:\\Users\\Lenovo\\Desktop\\dane\\tests\\test_A\\predictions\\Slam.csv");
+		      // Creates a BufferedWriter
+		      BufferedWriter output = new BufferedWriter(writer);
+
+			 	
+			 	for(int i=0;i<data.size();i++) {
+			 		double[] current = data.get(i);
+			 		String write = "";
+			 		for(int a=0;a<current.length;a++) {
+			 			
+			 			if(a!=0)
+			 				write+=';';
+			 			write+=current[a];
+			 		}
+			 		output.write(write+"\r\n");
+			 		 
+			 	}
+			      // Closes the writer
+			      output.close();
+	            writer.close();
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	        }
 	}
 	
 	static void processPhotos() {
@@ -123,7 +219,7 @@ public class Main {
 		String sample="";
 		for(int f=0;f<5000;f++) {
 			
-			sim = new Simulator(true,false,false);
+			sim = new Simulator(false,false,false);
 			sim.setMapVerticies(new double[][] {
 				{2.87, 1.81},
 				{12.58, 2.75},
@@ -142,14 +238,13 @@ public class Main {
 			});
 			
 			
-		
 		saveTrajectory(sim.generateRandomTrajectory(2),"C:\\Users\\Lenovo\\Desktop\\dane\\trajectories\\Room A\\","temp");
 		sim.setTrajectories(new String[] {"C:\\Users\\Lenovo\\Desktop\\dane\\trajectories\\Room A\\temp.txt"});
 		for(int z=0;z<sim.ann.shifts.size();z++) {
+
 			sim.simulateOneStep();
-			//try {TimeUnit.MILLISECONDS.sleep(100);}catch(Exception exc) {}
+			try {TimeUnit.MILLISECONDS.sleep(1000);}catch(Exception exc) {}
 		}
-		
 		samples.add(sim.ann.fileBuffer);
 		System.out.println(f);
 		}
@@ -248,6 +343,10 @@ public class Main {
 			drawANNdata(sim2.ann,1400,600);
 		}
 		
+//		if(ann!=null) {
+//			drawANNdata(ann,500,700);
+//		}
+//		
 	}
 	
 	static void drawANNdata(ANNdata ann, double Ox, double Oy) {
@@ -267,7 +366,7 @@ public class Main {
 		
 	}
 	
-	static void drawICP(SimpleICP icp, double Ox, double Oy) {
+	static void drawICP(SLAM icp, double Ox, double Oy) {
 		
 		
 		 for(int i=0;i<icp.prev.points.length;i++) {

@@ -1,10 +1,12 @@
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 
-public class SimpleICP {
+public class SLAM {
 	
 	ArrayList<double[]> featureMatches=null, fetureCopied=null;//prevIndex,prevX,prevZ,,currIndex,currX,currZ,distance
-	static double PROXIMITY_THRESHOLD = 10000;
-	static double PHYSICAL_DISTANCE_THRESHOLD = 2;
+	static double PROXIMITY_THRESHOLD = 6000;
+	static double PHYSICAL_DISTANCE_THRESHOLD = 3;
 	Transform prev = null;
 	Transform curr = null;
 	int prevMarked = -1;
@@ -15,44 +17,64 @@ public class SimpleICP {
 
 	
 
-	public double[] computeShift1() {
+	public double[] bruteForceICP(int iterations) {
 		
 		//first method will be applying translation so that the best matching points are at the same spot
 		//and then rotating the entire cloud around that spot to see which orientation makes for the best
 		//match between layers
-		int bestScore = -1;
+
+		double [] result = new double[3];
+		for(int i=0;i<iterations;i++) {
+			result = bruteForceSearch(6/Math.pow(Math.sqrt(2), i),8, 3/Math.pow(Math.sqrt(5), i),20, 0.4d,result[0],result[1],result[2]);
+		}
+		return result;
+	}
+	
+	
+	public double[] bruteForceSearch(double Tmul, int Tresolution, double Amul, int Aresolution, double minimalDistance, double xs, double ys,double rs ) {
+		
+		//for both types of transformations I receive range and resolution
+		// resolution - how many points will be examined
+		// "Tmul" - multiplied by the resolution to enlarge/shrink the window; 
+		//for range=1 - the testing window has the size of resolution × resolution
+		//rotations work the same way
+		
+		double bestScore = -1;
 		double[] bestShift = new double[3];
 
-
-		
-		for(int x=0;x<20;x++) {
-			for(int z=0;z<20;z++) {
-				curr.translate((x-10)/10d, (z-10)/10d);
-				curr.rotate((x-10)/10d, (z-10)/10d,-30);
-				for(int r=-30;r<30;r++) {
-					curr.rotate((x-10)/10d, (z-10)/10d, 1);
-					int score = curr.computeMatchingScore(prev);
+		for(int x=0;x<Tresolution;x++) {
+			for(int z=0;z<Tresolution;z++) {
+				
+				double currentX = ((x-(Tresolution/2))/10d)*Tmul+xs;
+				double currentZ = ((z-(Tresolution/2))/10d)*Tmul+ys;
+				double starting_angle = Aresolution*Amul;
+				
+				curr.translate(currentX, currentZ);
+				curr.rotate(currentX, currentZ,-starting_angle+rs);
+				
+				for(int r=-Aresolution;r<=Aresolution;r++) {
+					
+					curr.rotate(currentX, currentZ, 1*Amul);
+					double score = curr.computeMatchingScore(prev,minimalDistance);
+			
 					if(bestScore<score) {
-						bestShift= new double[]{curr.points[0][0],curr.points[0][2],r};
+						bestShift= new double[]{curr.points[0][0],curr.points[0][2],rs+r*Amul};
 						bestScore=score;
 					}
 				}
 				curr.resetPositions();
 				
 			}
-		}
+			}
 		
 		
-		
-		
-		
-
-		return new double[] {bestShift[0],bestShift[1],bestShift[2]};
+		return bestShift;
 	}
 
-	public double[] RANSAC() {
+	public double[] RANSAC(int loop) {
 		
-		int bestScore=0;
+		ArrayList<double[]> transforms = new ArrayList<double[]>();
+		double bestScore=0;
 		double[] best= new double[3];
 		//looking for a, x, z values
 		   //pick 3 best matches 
@@ -61,9 +83,10 @@ public class SimpleICP {
 		copyFeatures();
 		double[][] matchedPoints = takeBestMAtches();
 		double[] transform = computeTransform(matchedPoints);
-		curr.rotate(0, 0, -transform[2]);
+		transforms.add(transform);
 		curr.translate(transform[0],transform[1]);
-		int score = curr.computeMatchingScore(prev);
+		curr.rotate(transform[0], transform[1], transform[2]);
+		double score = curr.computeMatchingScore(prev,0.4d);
 		curr.resetPositions();
 		
 		if(bestScore<score) {
@@ -74,8 +97,43 @@ public class SimpleICP {
 		
 		
 	}
-		double[] answer = best;
-		return answer;
+		saveFeaturMatches("FC"+String.valueOf(loop) , featureMatches);
+		saveTransforms(String.valueOf(loop) , transforms);
+		return best;
+	}
+	
+	void saveFeaturMatches(String oridinalName, ArrayList<double[]> transforms) {
+	       try {
+	            FileWriter writer = new FileWriter("C:\\Users\\Lenovo\\Desktop\\dane\\Evaluation\\"+oridinalName+".csv", true);
+	            for(int i = 0; i<transforms.size();i++)
+	            {
+	            	double[] curr = transforms.get(i); 
+	            	writer.write((curr[1]-curr[4])+";"+(curr[2]-curr[5])+";1");
+	            	writer.write("\r\n");  
+	            }
+	            
+	            
+	            writer.close();
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	        }
+	}
+	
+	void saveTransforms(String oridinalName, ArrayList<double[]> transforms) {
+	       try {
+	            FileWriter writer = new FileWriter("C:\\Users\\Lenovo\\Desktop\\dane\\Evaluation\\"+oridinalName+".csv", true);
+	            for(int i = 0; i<transforms.size();i++)
+	            {
+	            	double[] curr = transforms.get(i); 
+	            	writer.write(curr[0]+";"+curr[1]+";"+curr[2]);
+	            	writer.write("\r\n");  
+	            }
+	            
+	            
+	            writer.close();
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	        }
 	}
 	
 	
@@ -194,42 +252,36 @@ public class SimpleICP {
 		return result;
 	}
 	
-	public SimpleICP(FeatureCloud t_minus_1, FeatureCloud t, boolean kalman) {
+	public SLAM(FeatureCloud t_minus_1, FeatureCloud t) {
 		
-		useKalman=kalman;
 		prev = new Transform(t_minus_1);
 		curr = new Transform(t);
 		//now we're matching the features
 		this.featureMatches = new ArrayList<double[]>();
 		match_features(t_minus_1,t);
 		
-		//System.out.println(featureMatches.size());
-		
-		//itteratively apply transform that will bring both matched features closer together
-		
 		
 	}
 	
-	public void match_features(FeatureCloud Left, FeatureCloud Right) {
+	public void match_features(FeatureCloud Previous , FeatureCloud Current ) {
 		
-		for(int fl=0;fl<Left.features.size();fl++) {
-		double[] vectorL = Left.features.get(fl);
-		double Lx = Left.featurePositions.get(fl)[0];
-		double Ly = Left.featurePositions.get(fl)[1];
+		for(int fl=0;fl<Previous.features.size();fl++) {
+		double[] vectorL = Previous.features.get(fl);
+		double Lx = Previous.featurePositions.get(fl)[0];
+		double Ly = Previous.featurePositions.get(fl)[1];
 		double Rx = 0;
 		double Ry =0;
 		
 		double smallest =999999999;
 		int smallest_index=1;
 		
-		for(int fr=0;fr<Right.features.size();fr++) {
+		for(int fr=0;fr<Current.features.size();fr++) {
 			
-			double[] vectorR = Right.features.get(fr);
-			Rx = Right.featurePositions.get(fr)[0];
-			Ry = Right.featurePositions.get(fr)[1];
+			double[] vectorR = Current.features.get(fr);
+			Rx = Current.featurePositions.get(fr)[0];
+			Ry = Current.featurePositions.get(fr)[1];
 			
 			
-			if(Rx<Lx&&Math.abs(Ly-Ry)<3) {
 				double distance =0;
 				for(int v =0;v<128;v++) {
 					distance+=Math.abs(vectorR[v]-vectorL[v]);
@@ -239,17 +291,17 @@ public class SimpleICP {
 					smallest=distance;
 					smallest_index=fr;
 				}	
-			}	
+			
 		}
 		
 		if(smallest<PROXIMITY_THRESHOLD) {
-			double dx = Left.featurePositions.get(fl)[0]-Right.featurePositions.get(smallest_index)[0];
-			double dz = Left.featurePositions.get(fl)[2]-Right.featurePositions.get(smallest_index)[2];
+			double dx = Previous.featurePositions.get(fl)[0]-Current.featurePositions.get(smallest_index)[0];
+			double dz = Previous.featurePositions.get(fl)[2]-Current.featurePositions.get(smallest_index)[2];
 			double trueDistance = Math.sqrt(dx*dx+dz*dz);
 			if(trueDistance<PHYSICAL_DISTANCE_THRESHOLD)
 			featureMatches.add(new double[] {
-					fl,Left.featurePositions.get(fl)[0],Left.featurePositions.get(fl)[2],
-					smallest_index,Right.featurePositions.get(smallest_index)[0],Right.featurePositions.get(smallest_index)[2],
+					fl,Previous.featurePositions.get(fl)[0],Previous.featurePositions.get(fl)[2],
+					smallest_index,Current.featurePositions.get(smallest_index)[0],Current.featurePositions.get(smallest_index)[2],
 					smallest});
 			
 			
@@ -267,7 +319,6 @@ public class SimpleICP {
 class Transform{
 	double[][] points;
 	final double[][] pointsFinal;
-	double MINIMAL_DISTANCE = 0.1d;
 	
 	//computes mass center of points within radius
 	public double[] computeCenter(double radius) {
@@ -301,11 +352,11 @@ class Transform{
 		
 	}
 	
-	public int computeMatchingScore(Transform another) {
+	public double computeMatchingScore(Transform another, double MINIMAL_DISTANCE) {
 		
 		//the comparing strategy is this: we're counting points from group B (prev) that are in close proximity
 		// to any of the points in group A (curr)
-		int count=0;
+		double count=0;
 		
 		for(int i=0;i<another.points.length;i++) {
 			
@@ -319,9 +370,8 @@ class Transform{
 				double distance = Math.sqrt(xShiftSquared+zShiftSquared);
 				
 				
-				if(distance<=MINIMAL_DISTANCE) {hasMatch=true; u=this.points.length;}
+				if(distance<=MINIMAL_DISTANCE) {count+=Math.pow(MINIMAL_DISTANCE-distance,2);}
 			}
-			if(hasMatch)count++;
 			
 		}
 		

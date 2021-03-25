@@ -133,14 +133,14 @@ public class ANNdata {
 		}
 		//System.out.println(s);
 		
-		s+=-change[1]+",";
-		s+=change[0]+",";
-		s+=change[2]+",";
+//		s+=-change[1]+",";
+//		s+=change[0]+",";
+//		s+=change[2]+",";
 		
-//		s+=-positionY+",";
-//		s+=positionX+",";
-//		s+=rotation+",";
-//		s+="\r\n";
+		s+=-positionY+",";
+		s+=positionX+",";
+		s+=rotation+",";
+		s+="\r\n";
 		fileBuffer+=s;
 		
 		setTransform(t);
